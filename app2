@@ -6,7 +6,138 @@ import plotly.express as px
 import seaborn as sns
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import LabelEncoder
+import time
 
+# Security
+#passlib,hashlib,bcrypt,scrypt
+import hashlib
+def make_hashes(password):
+        return hashlib.sha256(str.encode(password)).hexdigest()
+
+def check_hashes(password,hashed_text):
+        if make_hashes(password) == hashed_text:
+                return hashed_text
+        return False
+
+# DB Management
+import sqlite3 
+conn = sqlite3.connect('data.db')
+c = conn.cursor()
+# DB  Functions
+def create_usertable():
+        c.execute('CREATE TABLE IF NOT EXISTS userstable(username TEXT,password TEXT)')
+
+
+def add_userdata(username,password):
+        c.execute('INSERT INTO userstable(username,password) VALUES (?,?)',(username,password))
+        conn.commit()
+
+def login_user(username,password):
+        c.execute('SELECT * FROM userstable WHERE username =? AND password = ?',(username,password))
+        data = c.fetchall()
+        return data
+
+
+def view_all_users():
+        c.execute('SELECT * FROM userstable')
+        data = c.fetchall()
+        return data
+
+import random
+
+# List of tips for improving credit scores
+tips = [
+    "Pay your bills on time",
+    "Keep your credit card balances low",
+    "Avoid opening too many new accounts at once",
+    "Check your credit report for errors",
+    "Pay off debt rather than moving it around",
+    "Don't close unused credit cards",
+    "Limit your credit inquiries",
+    "Set up payment reminders"
+]
+
+def get_random_tip():
+    # Select a random tip from the list
+    tip = random.choice(tips)
+    return tip
+
+# Display the selected tip
+
+
+
+def test():
+        st.image('pexels-kampus-production-8353769.jpg')
+        featuress = pd.read_csv("new_data.csv")
+        target = featuress.drop(columns=['Loan_Status'])
+
+        def user_input_features():
+
+            Gender = st.radio("Gender",
+                                        options=(Gender for Gender in featuress.Gender.unique()))
+            age = st.slider('Age', 10, 80)
+            Married = st.radio("Married", 
+                                        options=(Married for Married in featuress.Married.unique()))
+
+            Dependents = st.selectbox("Dependents",
+                                        options=(Dependents for Dependents in featuress.Dependents.unique()))
+            
+            Education = st.radio("Education", 
+                                        options=(Education for Education in featuress.Education.unique()))
+
+            Self_Employed = st.radio("Self_Employed", 
+                                        options=(Self_Employed for Self_Employed in featuress.Self_Employed.unique()))
+
+
+            Credit_History = st.radio("Credit_History", 
+                                        options=(Credit_History for Credit_History in featuress.Credit_History.unique()))
+
+            Loan_Amount_Term = st.selectbox("Loan_Amount_Term",
+                                                options=(Loan_Amount_Term for Loan_Amount_Term in featuress.Loan_Amount_Term.unique()))    
+
+            Property_Area = st.selectbox("Property_Area", 
+                                            (Property_Area for Property_Area in featuress.Property_Area.unique()))
+            
+            TotalIncome = st.slider('How many Total Income ?', 0, 100000)
+
+            LoanAmount = st.slider('How many Loan Amount ?', 0, 700000)
+
+            data = {
+                "Gender": Gender,
+                "Married": Married,
+                "Dependents": Dependents,
+                "Education": Education,
+                "Self_Employed": Self_Employed,
+                "LoanAmount": LoanAmount,
+                "Loan_Amount_Term": Loan_Amount_Term,
+                "Credit_History": Credit_History,
+                "Property_Area": Property_Area,
+                "TotalIncome": TotalIncome 
+                }
+
+            features = pd.DataFrame(data, index=[0])
+            return features
+
+        input_df = user_input_features()
+
+        df = pd.concat([input_df,target],axis=0)
+
+        for col in df[['Gender', 'Married', 'Dependents', 'Education', 'Self_Employed', 'Loan_Amount_Term', 'Property_Area']]:
+            df[col] = LabelEncoder().fit_transform(df[col])
+        
+        XGB_MODEL_PATH = joblib.load("final_model.h5")
+        XGB_SCALER_PATH = joblib.load("scaler.h5")
+
+        scaled_data = XGB_SCALER_PATH.transform(df)
+        prediction_proba = XGB_MODEL_PATH.predict_proba(scaled_data)
+        if st.button('Predict'):
+        
+            my_bar = st.progress(0)
+            for percent_complete in range(100):
+                time.sleep(.05)
+                my_bar.progress(percent_complete + 1)
+            st.success(f'# The probability of this Loan is  accepted is: {round(prediction_proba[0][1] * 100, 2)}%')
+            st.info("To improve your credit score : "+get_random_tip())
 
 
 
@@ -98,77 +229,49 @@ def main():
     
     elif choice == 'System':
         st.title('Loan Approval Prediction', '\n' )
-        
-        st.image('pexels-kampus-production-8353769.jpg')
-        featuress = pd.read_csv("new_data.csv")
-        target = featuress.drop(columns=['Loan_Status'])
+        st.markdown("<h4 style='text-align: center; color: green;'>Login / Sign up Page</h4>", unsafe_allow_html=True)
+        menu = ["ADMIN LOGIN","USER LOGIN","SIGN UP"]
+        choice = st.selectbox("Menu",menu)
+        if choice == "ADMIN LOGIN":
+            st.markdown("<h1 style='text-align: center;'>Admin Login Section</h1>", unsafe_allow_html=True)
+            user = st.text_input('Username')
+            passwd = st.text_input('Password',type='password')
+            if st.checkbox("LOGIN"):
+                if user == "Admin" and passwd == 'admin123':
+                    st.success("Logged In as {}".format(user))
+                    st.subheader("User Profiles")
+                    user_result = view_all_users()
+                    clean_db = pd.DataFrame(user_result,columns=["Username","Password"])
+                    st.dataframe(clean_db)
+                    test()
+                else:
+                      st.warning("Incorrect Admin Username/Password")
+        elif choice == "USER LOGIN":
+            st.markdown("<h1 style='text-align: center;'>User Login Section</h1>", unsafe_allow_html=True)
+            username = st.text_input("User Name")
+            password = st.text_input("Password",type='password')
+            if st.checkbox("LOGIN"):
+                create_usertable()
+                hashed_pswd = make_hashes(password)
+                result = login_user(username,check_hashes(password,hashed_pswd))
+                if result:
+                    st.success("Logged In as {}".format(username))
+                    test()
+                else:
+                    st.warning("Incorrect Username/Password")
+                    st.warning("Please Create an Account if not Created")
+        elif choice == "SIGN UP":
+            st.subheader("Create New Account")
+            new_user = st.text_input("Username")
+            new_password = st.text_input("Password",type='password')
+            if st.button("SIGN UP"):
+                create_usertable()
+                add_userdata(new_user,make_hashes(new_password))
+                st.success("You have successfully created a valid Account")
+                st.info("Go to User Login Menu to login")
+			
+                
 
-        def user_input_features():
-
-            Gender = st.radio("Gender",
-                                        options=(Gender for Gender in featuress.Gender.unique()))
-            age = st.slider('Age', 10, 80)
-            Married = st.radio("Married", 
-                                        options=(Married for Married in featuress.Married.unique()))
-
-            Dependents = st.selectbox("Dependents",
-                                        options=(Dependents for Dependents in featuress.Dependents.unique()))
-            
-            Education = st.radio("Education", 
-                                        options=(Education for Education in featuress.Education.unique()))
-
-            Self_Employed = st.radio("Self_Employed", 
-                                        options=(Self_Employed for Self_Employed in featuress.Self_Employed.unique()))
-
-
-            Credit_History = st.radio("Credit_History", 
-                                        options=(Credit_History for Credit_History in featuress.Credit_History.unique()))
-
-            Loan_Amount_Term = st.selectbox("Loan_Amount_Term",
-                                                options=(Loan_Amount_Term for Loan_Amount_Term in featuress.Loan_Amount_Term.unique()))    
-
-            Property_Area = st.selectbox("Property_Area", 
-                                            (Property_Area for Property_Area in featuress.Property_Area.unique()))
-            
-            TotalIncome = st.slider('How many Total Income ?', 0, 100000)
-
-            LoanAmount = st.slider('How many Loan Amount ?', 0, 700000)
-
-            data = {
-                "Gender": Gender,
-                "Married": Married,
-                "Dependents": Dependents,
-                "Education": Education,
-                "Self_Employed": Self_Employed,
-                "LoanAmount": LoanAmount,
-                "Loan_Amount_Term": Loan_Amount_Term,
-                "Credit_History": Credit_History,
-                "Property_Area": Property_Area,
-                "TotalIncome": TotalIncome 
-                }
-
-            features = pd.DataFrame(data, index=[0])
-            return features
-
-        input_df = user_input_features()
-
-        df = pd.concat([input_df,target],axis=0)
-
-        for col in df[['Gender', 'Married', 'Dependents', 'Education', 'Self_Employed', 'Loan_Amount_Term', 'Property_Area']]:
-            df[col] = LabelEncoder().fit_transform(df[col])
-        
-        XGB_MODEL_PATH = joblib.load("final_model.h5")
-        XGB_SCALER_PATH = joblib.load("scaler.h5")
-
-        scaled_data = XGB_SCALER_PATH.transform(df)
-        prediction_proba = XGB_MODEL_PATH.predict_proba(scaled_data)
-        if st.button('Predict'):
-        
-            my_bar = st.progress(0)
-            for percent_complete in range(100):
-                time.sleep(.05)
-                my_bar.progress(percent_complete + 1)
-            st.success(f'# The probability of this Loan is  accepted is: {round(prediction_proba[0][1] * 100, 2)}%')
 
 if __name__ == "__main__":
     main()
